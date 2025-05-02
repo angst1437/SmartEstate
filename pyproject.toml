@@ -1,0 +1,20 @@
+[project]
+name = "nedviga"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Alexander Kleptsov",email = "angst1437@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "selenium (>=4.31.0,<5.0.0)",
+    "requests (>=2.32.3,<3.0.0)",
+    "beautifulsoup4 (>=4.13.3,<5.0.0)",
+    "psycopg2 (>=2.9.10,<3.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
