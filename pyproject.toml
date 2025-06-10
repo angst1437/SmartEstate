@@ -1,21 +1,18 @@
-[project]
-name = "nedviga"
+[tool.poetry]
+name = "smartestate"
 version = "0.1.0"
 description = ""
-authors = [
-    {name = "Alexander Kleptsov",email = "angst1437@gmail.com"}
-]
+authors = ["Alexander Kleptsov <angst1437@gmail.com>"]
 readme = "README.md"
-requires-python = ">=3.13"
-dependencies = [
-    "selenium (>=4.31.0,<5.0.0)",
-    "requests (>=2.32.3,<3.0.0)",
-    "beautifulsoup4 (>=4.13.3,<5.0.0)",
-    "psycopg2 (>=2.9.10,<3.0.0)",
-    "undetected-chromedriver (>=3.5.5,<4.0.0)"
-]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+selenium = "^4.32.0"
+undetected-chromedriver = "^3.5.5"
+bs4 = "^0.0.2"
+psycopg2 = "^2.9.10"
 
 
 [build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
+requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

@@ -9,7 +9,7 @@ import sqlite3
 driver = webdriver.Chrome()
 
 cities_conn = sqlite3.connect('cities.db')
-links_conn = sqlite3.connect('links.db')
+links_conn = sqlite3.connect('../parsers/cian/links.db')
 cities_cursor = cities_conn.cursor()
 links_cursor = links_conn.cursor()
 

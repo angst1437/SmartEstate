@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/parsers/cian/cian_parser.py" dialect="GenericSQL" />
     <file url="file://$PROJECT_DIR$/util/cian_cities_links_parser.py" dialect="SQLite" />
+    <file url="PROJECT" dialect="PostgreSQL" />
   </component>
 </project>

@@ -1,25 +1,19 @@
 from abc import ABC, abstractmethod
 from selenium import webdriver
-import undetected_chromedriver as uc
-import DBHelper
+from fake_useragent import UserAgent
+try:
+    import undetected_chromedriver as uc
+except ModuleNotFoundError:
+    print("Undetected chromedriver not working")
 
 class ParserInterface(ABC):
-    def __init__(self, helper, use_undetected=False):
-        if use_undetected:
-            options = uc.ChromeOptions()
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument(
-                'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.89 Safari/537.36')
+    def __init__(self):
+        options = webdriver.ChromeOptions()
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument(
+            'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.89 Safari/537.36')
+        self.browser = webdriver.Chrome(options=options)
 
-            self.browser = uc.Chrome(options=options)
-        else:
-            options = webdriver.ChromeOptions()
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument(
-                'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.89 Safari/537.36')
-            self.browser = webdriver.Chrome(options=options)
-
-        self.dbhelper = helper
     @abstractmethod
     def parse_urls(self):
         pass
@@ -27,22 +21,35 @@ class ParserInterface(ABC):
 
 
 class UrlCollectorInterface(ABC):
-    def __init__(self, helper, use_undetected=False, ):
+    def __init__(self, use_undetected=True):
         if use_undetected:
             options = uc.ChromeOptions()
-            options.add_argument('--disable-blink-features=AutomationControlled')
+
+            # Настройки для обхода защиты
+            options.add_argument("--disable-blink-features=AutomationControlled")
+            options.add_argument("--disable-infobars")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--headless=new")  # Headless-режим
+            options.add_argument("--disable-images")  # Без картинок
+            options.add_argument("--disable-gpu")
+            options.add_argument("--disable-extensions")
+            options.add_argument("--disable-logging")
+
             options.add_argument(
                 'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.89 Safari/537.36')
 
-            self.browser = uc.Chrome(options=options)
-        else:
-            options = webdriver.ChromeOptions()
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument(
-                'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.89 Safari/537.36')
-            self.browser = webdriver.Chrome(options=options)
+            self.browser = uc.Chrome(
+                options=options,
+                use_subprocess=True,
+            )
 
-        self.dbhelper = helper
+        options = webdriver.ChromeOptions()
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument(
+            'user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.6998.89 Safari/537.36')
+        self.browser = webdriver.Chrome(options=options)
+
 
     @abstractmethod
     def paginate(self):
