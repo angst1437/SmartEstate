@@ -3,7 +3,7 @@ import logging
 from datetime import datetime
 
 from util.proxy_manager import ProxyManager
-from util import DBHelper
+from util import DBHelperOld
 from avito_parser import AvitoParser
 import httpx
 

@@ -7,13 +7,19 @@ import psycopg2
 import requests
 from selectolax.parser import HTMLParser
 from playwright.async_api import async_playwright
+from util.interfaces import Parser
+from util.DBHelper import DBHelper
+from util.geocoder import Geocoder
 
 
-class AvitoParser:
+class AvitoParser(Parser):
     def __init__(self, db_config):
-        pass
-        # self.conn = psycopg2.connect(**db_config)
-        # self.cursor = self.conn.cursor()
+        self.playwright = None
+        self.browser = None
+        self.context = None
+        self.page = None
+        self.db_helper = DBHelper(db_config)
+        self.geocoder = Geocoder()
 
     async def start_browser(self):
         self.playwright = await async_playwright().start()
@@ -25,8 +31,7 @@ class AvitoParser:
     async def close_browser(self):
         await self.browser.close()
         await self.playwright.stop()
-        # self.cursor.close()
-        # self.conn.close()
+        self.db_helper.close()
 
     async def price_range(self, base_url, start_val, end_val):
         await self.page.goto(base_url)
@@ -52,7 +57,7 @@ class AvitoParser:
         ]
         return links
 
-    async def parse_ad(self, url):
+    async def parse_page(self, url):
         try:
             await self.page.goto(url)
             await self.page.wait_for_selector('h1[data-marker="item-view/title-info"]', timeout=15000)
@@ -87,38 +92,31 @@ class AvitoParser:
             description_tag = tree.css_first('div[data-marker="item-view/item-description"]')
             description = description_tag.text(separator=' ', strip=True) if description_tag else 'Описание не найдено'
 
-            # Геокодирование
-            latitude, longitude = None, None
-            if address and address != 'Адрес не найден':
-                latitude, longitude = 1, 1
 
-            # self.cursor.execute("INSERT INTO url_to_ads (url) VALUES (%s)", (url,))
-            # self.cursor.execute("""
-            #     INSERT INTO info (
-            #         url, title, price, photos, about_flat_jsonb,
-            #         address, description, latitude, longitude
-            #     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            # """, (
-            #     url, title, price, images_jsonb, about_flat_jsonb,
-            #     address, description, latitude, longitude
-            # ))
-            # self.cursor.execute("UPDATE url_to_ads SET parsed = TRUE WHERE url = %s", (url,))
-            # self.conn.commit()
+            latitude, longitude = self.geocoder.get_cords_from_address(address)
+
+            self.db_helper.add_data({
+                'url': url,
+                'title': title,
+                'price': price,
+                'images': images_jsonb,
+                'about_flat': about_flat_jsonb,
+                'address': address,
+                'description': description,
+                'latitude': latitude,
+                'longitude': longitude
+            })
             print(f"Сохранено: {title}")
         except Exception as e:
-            # self.conn.rollback()
             print(f"Ошибка при парсинге {url}: {e}")
 
-    def geocoder_get_coordinates(self, address):
-        # Подключи свой API или реализацию здесь
-        return None, None  # latitude, longitude
 
     async def process_price_range(self, base_url, start_val, end_val):
         if not await self.price_range(base_url, start_val, end_val):
             return
         urls = await self.get_ads_urls()
         for url in urls:
-            await self.parse_ad(url)
+            await self.parse_page(url)
             await asyncio.sleep(random.uniform(2, 4))
 
     async def run_all(self, base_url, prices):
@@ -138,7 +136,7 @@ if __name__ == "__main__":
         'host': 'localhost',
         'user': 'user',
         'password': 'password',
-        'dbname': 'your_db'
+        'dbname': 'avito'
     }
 
     BASE_URL = 'https://www.avito.ru/all/kvartiry/prodam-ASgBAgICAUSSA8YQ?...'

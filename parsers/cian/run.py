@@ -3,7 +3,7 @@ import sqlite3
 from datetime import datetime
 
 from cian_parser import EstatePageParser, UrlCollector
-from util import DBHelper
+from util import DBHelperOld
 from util.proxy_manager import ProxyManager
 import httpx
 import logging

@@ -1,109 +1,113 @@
-import psycopg2
-from contextlib import contextmanager
-from psycopg2.extras import RealDictCursor
-from psycopg2.extras import execute_values
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, func
+from sqlalchemy.dialects.postgresql import REAL
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.dialects.postgresql import ARRAY
+
+Base = declarative_base()
 
 class DBHelper:
-    def __init__(self, dbname, dbpassword, dbhost="localhost", dbport=5432, dbuser="postgres"):
-        self.conn_params = {
-            "host": dbhost,
-            "port": dbport,
-            "database": dbname,
-            "user": dbuser,
-            "password": dbpassword
+    @staticmethod
+    def _unpack_dbconfig(db_config: dict) -> list:
+        """Распаковывает db_config"""
+        user = db_config.get('user', 'postgres')
+        password = db_config.get('password', '')
+        host = db_config.get('host', 'localhost')
+        db_name = db_config['db_name']
+        port = db_config.get('port', '')
+        return [user, password, host, db_name, port]
+
+    @staticmethod
+    def _get_table(db_name: str):
+        model_registry = {
+            model.__tablename__: model
+            for model in Base.__subclasses__()
         }
 
-    @contextmanager
-    def connect(self):
-        conn = psycopg2.connect(
-            host=self.conn_params["host"],
-            port=self.conn_params["port"],
-            database=self.conn_params["database"],
-            user=self.conn_params["user"],
-            password=self.conn_params["password"]
-        )
+        return model_registry[db_name.title()]
+
+
+    def __init__(self, db_config: dict):
+        user, password, host, db_name, port = self._unpack_dbconfig(db_config)
+        self.engine = create_engine(f"postgresql://{user}:{password}@{host}:{port}/{db_name}")
+        self.session_factory = sessionmaker(bind=self.engine) # фабрика сессий
+        self.Session = scoped_session(self.session_factory) # управление сессиями
+        self.table = self._get_table(db_name)
+
+
+    def get_session(self):
+        """Возвращает сессию для работы с бд"""
+        return self.Session()
+
+    def close(self):
+        """Закрывает соединения"""
+        self.Session.remove()
+        self.engine.dispose()
+
+    def add_data(self, data_dict):
+        """
+        Добавляет одну запись в БД
+        :param data_dict: словарь с данными
+        :return: созданный объект(для отладки)
+        """
+        session = self.Session()
+
         try:
-            yield conn
-            conn.commit()
+
+            new_item = self.table(**data_dict)
+
+            session.add(new_item)
+            session.commit()
+            session.refresh(new_item)
+
+            return new_item
         except Exception as e:
-            conn.rollback()
+            session.rollback()
             raise e
         finally:
-            conn.close()
+            session.close()
 
-    def execute(self, query, params=None):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params)
+    def get_all(self):
+        """
+        Получает все записи из таблицы
+        """
+        session = self.Session()
 
-    def fetch_one(self, query, params=None):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params)
-                return cur.fetchone()
+        try:
+            return session.query(self.table).all()
+        finally:
+            session.close()
 
-    def fetch_all(self, query, params=None):
-        with self.connect() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, params)
-                return cur.fetchall()
+    def get_query(self, query):
+        # ПОКА НЕ РАБОТАЕТ
+        pass
 
-    def insert_bulk(self, query, links, params=None):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                execute_values(cur, query, [(link,) for link in links], params)
+    def create_table_cian(self):
+        """Создать таблицу Циана"""
+        Cian.__table__.create(bind=self.engine)
 
-    def insert_ad(self, data):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                city = data["address"][0] if data.get("address") else None
+    def create_table_avito(self):
+        """Создать таблицу авито"""
+        Avito.__table__.create(bind=self.engine)
 
-                cur.execute("""
-                            INSERT INTO pages (link, city, address, price, photos, description, factoids, summary,
-                                                  type, page)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            ON CONFLICT DO NOTHING
-                            """, (
-                                data.get("link"),
-                                city,
-                                data.get("address"),
-                                data.get("price"),
-                                data.get("photos"),  # Список (массив строк)
-                                data.get("description"),
-                                data.get("factoids"),  # Список (массив строк)
-                                data.get("summary"),  # Список (массив строк)
-                                data.get("type"),
-                                data.get("page")
-                            ))
 
-    def insert_ads_bulk(self, data_list: list):
-        if not data_list:
-            return
 
-        values = []
-        for data in data_list:
-            city = data["address"][0] if data.get("address") else None
-            values.append((
-                data.get("link"),
-                city,
-                data.get("address"),
-                data.get("price"),
-                data.get("photos"),
-                data.get("description"),
-                data.get("factoids"),
-                data.get("summary"),
-                data.get("type"),
-                data.get("page")
-            ))
+class Cian(Base):
+    __tablename__ = 'cian_data'
 
-        query = """
-                INSERT INTO pages (link, city, address, price, photos, description, factoids, summary, type, page)
-                VALUES \
-                %s
-            ON CONFLICT \
-                DO NOTHING \
-                """
+    link = Column(String, primary_key=True)
+    address = Column(String)
+    price =Column(String)
+    photos = Column(ARRAY(String))
+    description = Column(String)
+    factoids = Column(ARRAY(String))
+    summary = Column(ARRAY(String))
+    type = Column(String)
+    page = Column(Integer)
+    latitude = Column(REAL)
+    longitude = Column(REAL)
 
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                execute_values(cur, query, values)
+class Avito(Base):
+    __tablename__ = 'avito_data'
+    # ПОКА НЕ РАБОТАЕТ
+    pass
