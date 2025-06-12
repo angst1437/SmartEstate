@@ -18,7 +18,7 @@ class AvitoParser(Parser):
         self.browser = None
         self.context = None
         self.page = None
-        self.db_helper = DBHelper(db_config)
+        # self.db_helper = DBHelper(db_config)
         self.geocoder = Geocoder()
 
     async def start_browser(self):
@@ -31,7 +31,7 @@ class AvitoParser(Parser):
     async def close_browser(self):
         await self.browser.close()
         await self.playwright.stop()
-        self.db_helper.close()
+        # self.db_helper.close()
 
     async def price_range(self, base_url, start_val, end_val):
         await self.page.goto(base_url)

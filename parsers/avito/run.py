@@ -4,9 +4,9 @@ from avito_parser import AvitoParser
 # Конфигурация подключения к БД
 DB_CONFIG = {
     'host': 'localhost',
-    'user': 'user',
-    'password': '1437',
-    'db_name': 'avito'
+    'dbuser': 'user',
+    'dbpassword': '1437',
+    'dbname': 'avito'
 }
 
 # Базовый URL и список цен
