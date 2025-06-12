@@ -3,12 +3,11 @@ import sqlite3
 from datetime import datetime
 
 from cian_parser import EstatePageParser, UrlCollector
-from util import DBHelperOld
+from util import DBHelper
 from util.proxy_manager import ProxyManager
 import httpx
 import logging
 
-# Настройка логов
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
@@ -65,8 +64,8 @@ async def page_parser_worker(queue: asyncio.Queue, dbhelper_config: dict, worker
             parser = EstatePageParser(url=url, client=client)
             data = await parser.parse_page()
             data["page"] = page
-            db.insert_ad(data)
-            print(f"[Worker {worker_id}] Успешно: {url}")
+            # db.insert_ad(data)
+            print(f"[Worker {worker_id}] Успешно: {data}")
             processed += 1
         except Exception as e:
             logger.warning(f"[Worker {worker_id}] Ошибка: {url} через {proxy}: {e}")
@@ -90,17 +89,8 @@ async def main():
         "dbpassword": "1437"
     }
 
-    logger.info("Чтение стартового URL из SQLite...")
-    conn = sqlite3.connect("links.db")
-    cur = conn.cursor()
-    cur.execute("SELECT buy_link FROM links LIMIT 3;")
-    row = cur.fetchall()
-    if not row:
-        logger.error("Не удалось получить стартовый URL из базы links.db")
-        return
-    start_url = row[2][0]
-    cur.close()
-    conn.close()
+
+    start_url = "https://chelyabinsk.cian.ru/kupit-kvartiru/"
     logger.info(f"Стартовый URL: {start_url}")
 
     queue = asyncio.Queue(maxsize=1000)
@@ -116,7 +106,7 @@ async def main():
     logger.info("Прокси инициализированы")
 
     logger.info("Создание HTTP-клиента для сбора ссылок")
-    async with httpx.AsyncClient(timeout=15.0) as general_client:
+    async with proxy_manager.get_httpx_client()[0] as general_client:
         logger.info("Запуск задач")
         producer = asyncio.create_task(url_collector_task(queue, start_url, general_client))
         consumers = [

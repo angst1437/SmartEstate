@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from geopy.geocoders import Nominatim
-from DBHelperOld import DBHelper
+from util.DBHelper import DBHelper
 
 
 class GeocoderInterface(ABC):

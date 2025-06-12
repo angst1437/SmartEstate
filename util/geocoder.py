@@ -1,6 +1,6 @@
 from geopy import Nominatim
 
-from interfaces import GeocoderInterface
+from util.interfaces import GeocoderInterface
 
 
 class Geocoder(GeocoderInterface):

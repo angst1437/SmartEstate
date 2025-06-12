@@ -11,6 +11,7 @@ selenium = "^4.32.0"
 undetected-chromedriver = "^3.5.5"
 bs4 = "^0.0.2"
 psycopg2 = "^2.9.10"
+lxml = "^5.4.0"
 
 
 [build-system]

@@ -95,7 +95,7 @@ class AvitoParser(Parser):
 
             latitude, longitude = self.geocoder.get_cords_from_address(address)
 
-            self.db_helper.add_data({
+            data = {
                 'url': url,
                 'title': title,
                 'price': price,
@@ -105,8 +105,10 @@ class AvitoParser(Parser):
                 'description': description,
                 'latitude': latitude,
                 'longitude': longitude
-            })
-            print(f"Сохранено: {title}")
+            }
+
+            # self.db_helper.add_data(data)
+            print(f"Сохранено: {data}")
         except Exception as e:
             print(f"Ошибка при парсинге {url}: {e}")
 
@@ -122,7 +124,7 @@ class AvitoParser(Parser):
     async def run_all(self, base_url, prices):
         await self.start_browser()
         try:
-            for i in range(0, len(prices) - 1, 2):
+            for i in prices:
                 start_val, end_val = prices[i], prices[i+1]
                 print(f"\n=== Обработка диапазона {start_val}-{end_val} ===")
                 await self.process_price_range(base_url, start_val, end_val)
@@ -136,7 +138,7 @@ if __name__ == "__main__":
         'host': 'localhost',
         'user': 'user',
         'password': 'password',
-        'dbname': 'avito'
+        'db_name': 'avito'
     }
 
     BASE_URL = 'https://www.avito.ru/all/kvartiry/prodam-ASgBAgICAUSSA8YQ?...'
