@@ -1,10 +1,13 @@
-import psycopg2
-from contextlib import contextmanager
-from psycopg2.extras import RealDictCursor
-from psycopg2.extras import execute_values
+import asyncpg
+from asyncpg.pool import Pool
+from typing import Optional, List, Dict, Any, Union, AsyncIterator
+from asyncpg import Record
+from asyncpg.exceptions import PostgresError
+
 
 class DBHelper:
-    def __init__(self, dbname, dbpassword, dbhost="localhost", dbport=5432, dbuser="postgres"):
+    def __init__(self, dbname: str, dbpassword: str, dbhost: str = "localhost",
+                 dbport: int = 5432, dbuser: str = "postgres"):
         self.conn_params = {
             "host": dbhost,
             "port": dbport,
@@ -12,67 +15,86 @@ class DBHelper:
             "user": dbuser,
             "password": dbpassword
         }
+        self.pool: Optional[Pool] = None
 
-    @contextmanager
-    def connect(self):
-        conn = psycopg2.connect(
-            host=self.conn_params["host"],
-            port=self.conn_params["port"],
-            database=self.conn_params["database"],
-            user=self.conn_params["user"],
-            password=self.conn_params["password"]
+    async def initialize(self) -> None:
+        """Initialize the connection pool"""
+        self.pool = await asyncpg.create_pool(**self.conn_params)
+
+    async def close(self) -> None:
+        """Close the connection pool"""
+        if self.pool:
+            await self.pool.close()
+
+    async def __aenter__(self) -> 'AsyncDBHelper':
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        await self.close()
+
+    async def execute(self, query: str, *args) -> str:
+        """Execute a query without returning results"""
+        async with self.pool.acquire() as conn:
+            try:
+                return await conn.execute(query, *args)
+            except PostgresError as e:
+                raise e
+
+    async def fetch_one(self, query: str, *args) -> Optional[Record]:
+        """Fetch a single row"""
+        async with self.pool.acquire() as conn:
+            try:
+                return await conn.fetchrow(query, *args)
+            except PostgresError as e:
+                raise e
+
+    async def fetch_all(self, query: str, *args) -> List[Record]:
+        """Fetch all rows"""
+        async with self.pool.acquire() as conn:
+            try:
+                return await conn.fetch(query, *args)
+            except PostgresError as e:
+                raise e
+
+    async def insert_bulk(self, query: str, values: List[Any]) -> str:
+        """Insert multiple rows efficiently"""
+        async with self.pool.acquire() as conn:
+            try:
+                return await conn.executemany(query, [(v,) for v in values])
+            except PostgresError as e:
+                raise e
+
+    async def insert_ad(self, data: Dict[str, Any]) -> str:
+        """Insert a single ad with all its data"""
+        city = data["address"][1] if data.get("address") else None
+
+        query = """
+            INSERT INTO info (
+                link, city, address, price, photos, description, 
+                factoids, summary, type, page, latitude, longitude
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            ON CONFLICT DO NOTHING
+        """
+
+        params = (
+            data.get("link"),
+            city,
+            data.get("address"),
+            data.get("price"),
+            data.get("photos"),
+            data.get("description"),
+            data.get("factoids"),
+            data.get("summary"),
+            data.get("type"),
+            data.get("page"),
+            data.get("latitude"),
+            data.get("longitude")
         )
-        try:
-            yield conn
-            conn.commit()
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            conn.close()
 
-    def execute(self, query, params=None):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params)
-
-    def fetch_one(self, query, params=None):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                cur.execute(query, params)
-                return cur.fetchone()
-
-    def fetch_all(self, query, params=None):
-        with self.connect() as conn:
-            with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute(query, params)
-                return cur.fetchall()
-
-    def insert_bulk(self, query, links, params=None):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                execute_values(cur, query, [(link,) for link in links], params)
-
-    def insert_ad(self, data):
-        with self.connect() as conn:
-            with conn.cursor() as cur:
-                city = data["address"][0] if data.get("address") else None
-
-                cur.execute("""
-                            INSERT INTO cian_data (link, city, address, price, photos, description, factoids, summary,
-                                                  type, page)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                            ON CONFLICT DO NOTHING
-                            """, (
-                                data.get("link"),
-                                city,
-                                data.get("address"),
-                                data.get("price"),
-                                data.get("photos"),  # Список (массив строк)
-                                data.get("description"),
-                                data.get("factoids"),  # Список (массив строк)
-                                data.get("summary"),  # Список (массив строк)
-                                data.get("type"),
-                                data.get("page")
-                            ))
-
+        async with self.pool.acquire() as conn:
+            try:
+                return await conn.execute(query, *params)
+            except PostgresError as e:
+                raise e

@@ -7,6 +7,7 @@ from util import DBHelper
 from util.proxy_manager import ProxyManager
 import httpx
 import logging
+from util.geocoder import Geocoder
 
 logging.basicConfig(
     level=logging.INFO,
@@ -14,14 +15,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-batch_size = 50
 
 async def url_collector_task(queue: asyncio.Queue, start_url: str, client: httpx.AsyncClient):
-    logger.info(f"Старт сбора ссылок с: {start_url}")
+    logger.info(f"Старт сбора ссылок с:     {start_url}")
     collector = UrlCollector(client)
     current_url = start_url
 
-    for i in range(10):  # 10 страниц
+    for i in range(55):
         logger.info(f"[Collector] Обрабатываем страницу {i+1}: {current_url}")
         result = await collector.get_urls_from_page(current_url)
         if result is None or not result["urls"]:
@@ -33,7 +33,6 @@ async def url_collector_task(queue: asyncio.Queue, start_url: str, client: httpx
             logger.debug(f"[Collector] Добавлена ссылка: {link} (стр. {result['page']})")
 
         current_url = collector.get_next_page(current_url)
-        await asyncio.sleep(1)
 
     logger.info("[Collector] Завершение. Посылаем сигналы завершения воркерам.")
     for _ in range(8):
@@ -42,15 +41,15 @@ async def url_collector_task(queue: asyncio.Queue, start_url: str, client: httpx
 
 async def page_parser_worker(queue: asyncio.Queue, dbhelper_config: dict, worker_id: int, proxy_manager: ProxyManager):
     db = DBHelper.DBHelper(**dbhelper_config)
+    await db.initialize()
     processed = 0
-    max_retries = 3
+    max_retries = 10
 
     logger.info(f"[Worker {worker_id}] Запущен")
 
     while True:
         task = await queue.get()
-        if task is None:
-            logger.info(f"[Worker {worker_id}] Получен сигнал завершения")
+        if task is None:  # Сигнал завершения
             break
 
         url = task["url"]
@@ -58,20 +57,41 @@ async def page_parser_worker(queue: asyncio.Queue, dbhelper_config: dict, worker
         retries = task.get("retries", 0)
 
         client, proxy = proxy_manager.get_httpx_client()
+        geocoder = Geocoder()
 
         try:
             logger.info(f"[Worker {worker_id}] Начинаем парсинг: {url} (попытка {retries + 1}, прокси: {proxy})")
             parser = EstatePageParser(url=url, client=client)
             data = await parser.parse_page()
+
+            # Проверка данных перед вставкой
+            if not data or "address" not in data:
+                raise ValueError("Неполные данные от парсера")
+
+            address = data["address"]
+            clean_address = f"{address[1]} {address[-2]} {address[-1]}"
+            latitude, longtitude = geocoder.get_cords_from_address(clean_address)
+
             data["page"] = page
-            # db.insert_ad(data)
-            print(f"[Worker {worker_id}] Успешно: {data}")
-            processed += 1
+            data["latitude"] = latitude
+            data["longitude"] = longtitude
+
+            # Проверка соединения с БД
+            try:
+                await db.insert_ad(data)
+                processed += 1
+                print(f"[Worker {worker_id}] Успешно: {url}")
+            except Exception as db_error:
+                logger.error(f"[Worker {worker_id}] Ошибка БД: {db_error}")
+                # Переинициализация соединения
+                db = DBHelper.DBHelper(**dbhelper_config)
+                await db.insert_ad(data)  # Повторная попытка
+                processed += 1
+
         except Exception as e:
             logger.warning(f"[Worker {worker_id}] Ошибка: {url} через {proxy}: {e}")
             proxy_manager.report_error(proxy)
 
-            # Повторная попытка
             if retries < max_retries:
                 logger.info(f"[Worker {worker_id}] Повторная попытка {retries + 1} для {url}")
                 await queue.put({"url": url, "page": page, "retries": retries + 1})
@@ -90,10 +110,10 @@ async def main():
     }
 
 
-    start_url = "https://chelyabinsk.cian.ru/kupit-kvartiru/"
+    start_url = "https://chelyabinsk.cian.ru/cat.php?deal_type=sale&engine_version=2&offer_type=flat&p=2&region=5048"
     logger.info(f"Стартовый URL: {start_url}")
 
-    queue = asyncio.Queue(maxsize=1000)
+    queue = asyncio.Queue(maxsize=100000)
     num_workers = 8
     logger.info(f"Используем {num_workers} воркеров")
 
@@ -106,7 +126,7 @@ async def main():
     logger.info("Прокси инициализированы")
 
     logger.info("Создание HTTP-клиента для сбора ссылок")
-    async with proxy_manager.get_httpx_client()[0] as general_client:
+    async with httpx.AsyncClient(timeout=15) as general_client:
         logger.info("Запуск задач")
         producer = asyncio.create_task(url_collector_task(queue, start_url, general_client))
         consumers = [

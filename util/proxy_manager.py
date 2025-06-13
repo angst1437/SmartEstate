@@ -166,7 +166,7 @@ class ProxyManager:
         self.proxies_queue = deque()
         self.lock = Lock()
         self.proxy_errors = defaultdict(int)
-        self.max_errors = 2
+        self.max_errors = 3
         self.use_local_ratio = use_local_ratio
 
     def init(self):

@@ -27,7 +27,7 @@ class EstatePageParser:
             "description": self.parse_description(tree),
             "factoids": self.parse_factoids(tree),
             "summary": self.parse_summary(tree),
-            "type": "rent" if "rent" in self.url else "sale"
+            "type": "rent" if "rent" or "snyat" in self.url else "sale"
         }
 
     def parse_address(self, tree):
@@ -71,7 +71,6 @@ class UrlCollector:
 
             containers = tree.css('div[data-testid="offer-card"]')
             links = []
-
             for container in containers:
                 a_tag = container.css_first("a")
                 if a_tag and "href" in a_tag.attributes:
@@ -91,16 +90,26 @@ class UrlCollector:
             print(f"Error fetching URL list from {url}: {e}")
             return {"urls": [], "page": 0}
 
-    def get_next_page(self, current_url: str):
-        match = re.search(r"(.*?[?&])p=(\d+)", current_url)
+    @staticmethod
+    def get_next_page(current_url: str):
+        match = re.search(r"([?&])p=(\d+)", current_url)
         if match:
-            base = match.group(1)
+            sep = match.group(1)
             current_page = int(match.group(2))
-            return f"{base}p={current_page + 1}"
-        elif "?" in current_url:
-            return f"{current_url}&p=2"
+            new_url = re.sub(r"([?&])p=\d+", f"{sep}p={current_page + 1}", current_url, count=1)
+            return new_url
         else:
-            return f"{current_url}?p=2"
+            return None
+
+    def get_next_page_url(html: str) -> str:
+        """
+        Извлекает URL следующей страницы из HTML кода пагинации
+        """
+        parser = HTMLParser(html)
+
+        # Ищем контейнер пагинации
+        pagination = parser.css_first('div[data-name="PaginationSection"]')
+
 
 async def main():
     async with httpx.AsyncClient() as client:
