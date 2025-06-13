@@ -21,3 +21,4 @@ class Parser(ABC):
     def parse_page(self, url: str):
         pass
 
+

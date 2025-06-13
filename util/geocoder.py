@@ -13,3 +13,4 @@ class Geocoder(GeocoderInterface):
             return [location.latitude, location.longitude]
         else:
             return [None, None]
+
