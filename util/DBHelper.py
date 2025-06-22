@@ -57,14 +57,6 @@ class DBHelper:
             except PostgresError as e:
                 raise e
 
-    async def insert_bulk(self, query: str, values: List[Any]) -> str:
-        """Insert multiple rows efficiently"""
-        async with self.pool.acquire() as conn:
-            try:
-                return await conn.executemany(query, [(v,) for v in values])
-            except PostgresError as e:
-                raise e
-
     async def insert_ad(self, data: Dict[str, Any]) -> str:
         """Insert a single ad with all its data"""
         city = data["address"][1] if data.get("address") else None

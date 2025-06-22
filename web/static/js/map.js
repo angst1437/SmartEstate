@@ -12,23 +12,27 @@ function unpackObj(obj) {
   return dict;
 }
 
-function formatSummary(mapData) {
-  if (!(mapData instanceof Map)) {
-    return "<p>Ошибка данных</p>";
+function formatJSON(jsonData, isNested = false) {
+  if (typeof jsonData !== "object" || jsonData === null) {
+    return jsonData !== undefined && jsonData !== null ? jsonData : "—";
   }
 
+  const containerClass = isNested ? "summary-nested" : "summary-container";
+
   return `
-    <div class="summary-container">
-      ${Array.from(mapData.entries())
-        .map(
-          ([key, value]) => `
-          <div class="summary-item">
-            <span class="summary-key"><b>${key}:</b></span>
-            <span class="summary-value">${value || "—"}</span>
-          </div>
-        `,
-        )
-        .join("")}
+    <div class="${containerClass}">
+      <dl class="summary-dl">
+        ${Object.entries(jsonData)
+          .map(
+            ([key, value]) => `
+            <div class="summary-item">
+              <dt class="summary-key"><b>${key}:</b></dt>
+              <dd class="summary-value">${formatJSON(value, true)}</dd>
+            </div>
+          `,
+          )
+          .join("")}
+      </dl>
     </div>
   `;
 }
@@ -37,12 +41,6 @@ window.addEventListener("load", function () {
   const map = L.map("map").setView([55.1465, 61.3406], 12);
 
   const mapElement = document.getElementById("map");
-
-  const resizeObserver = new ResizeObserver(() => {
-    map.invalidateSize();
-  });
-
-  resizeObserver.observe(mapElement);
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "© OpenStreetMap contributors",
@@ -54,7 +52,39 @@ window.addEventListener("load", function () {
     const bounds = map.getBounds();
     const zoom = map.getZoom();
 
-    const url = `/api/clusters?zoom=${zoom}&ne_lat=${bounds.getNorthEast().lat}&ne_lng=${bounds.getNorthEast().lng}&sw_lat=${bounds.getSouthWest().lat}&sw_lng=${bounds.getSouthWest().lng}`;
+    const filters = {
+      min_price: document.getElementById("filter_min_price").value,
+      max_price: document.getElementById("filter_max_price").value,
+      min_area: document.getElementById("filter_min_area").value,
+      max_area: document.getElementById("filter_max_area").value,
+      rooms: document.getElementById("filter_rooms").value,
+      renovation_type: document.getElementById("filter_renovation").value,
+      floor: document.getElementById("filter_floor").value,
+      min_year: document.getElementById("filter_min_year").value,
+      min_kitchen_area: document.getElementById("filter_min_kitchen_area")
+        .value,
+      min_bathrooms_num: document.getElementById("filter_min_bathrooms_num")
+        .value,
+      bathroom_type: document.getElementById("filter_bathroom_type").value,
+      balcony_type: document.getElementById("filter_balcony_type").value,
+    };
+
+    Object.keys(filters).forEach((key) => {
+      if (!filters[key]) {
+        delete filters[key];
+      }
+    });
+
+    const queryParams = new URLSearchParams({
+      zoom,
+      ne_lat: bounds.getNorthEast().lat,
+      ne_lng: bounds.getNorthEast().lng,
+      sw_lat: bounds.getSouthWest().lat,
+      sw_lng: bounds.getSouthWest().lng,
+      ...filters,
+    });
+
+    const url = `/api/clusters?${queryParams.toString()}`;
 
     fetch(url)
       .then((res) => res.json())
@@ -89,7 +119,6 @@ window.addEventListener("load", function () {
               <b>${prop.title}</b><br>
               <b>Цена:</b> ${formatted_price} ₽<br>
               <b>Адрес:</b> ${prop.address || "не указан"}<br>
-              <a href="${prop.link}" target="_blank">Перейти к объявлению</a>
             `;
 
             if (prop.about_data && typeof prop.about_data === "object") {
@@ -136,11 +165,12 @@ window.addEventListener("load", function () {
 
           marker.on("click", function () {
             const sidebarElement = document.getElementById("sidebar");
+            sidebarElement.classList.remove("expanded"); // Сброс расширения
             const sidebar =
               bootstrap.Offcanvas.getInstance(sidebarElement) ||
               new bootstrap.Offcanvas(sidebarElement);
 
-            sidebar.show();
+            window.sidebarInstance.show();
 
             if (cluster.count === 1) {
               updateSidebarContent(cluster.properties[0]);
@@ -155,19 +185,19 @@ window.addEventListener("load", function () {
   }
 
   function updateSidebarContent(property) {
+    const sidebarElement = document.getElementById("sidebar");
     const sidebarBody = document.querySelector(".offcanvas-body");
     if (!sidebarBody) return;
 
-    console.log(property.summary[0] + property.summary[1]);
-    const unpackedSum = unpackObj(property.summary);
+    // Убираем расширение для одиночных объявлений
+    sidebarElement.classList.remove("expanded");
 
     let content = `
       <h3>${property.title}</h3>
       <h4><strong>Цена:</strong> ${formatNumber(String(property.price))} ₽</h4>
       <p><strong>Адрес:</strong> ${property.address || "не указан"}</p>
       <p><strong>Описание:</strong> ${property.description || "нету"}</p>
-      <p><strong>Характеристики:</strong> ${formatSummary(unpackedSum)}</p><br>
-      <p>${property.factoids}</p>
+      <p><strong>Характеристики:</strong> ${formatJSON(property.summary)}</p><br>
       <a href="${property.link}" target="_blank" class="btn btn-primary mt-2">Перейти к объявлению</a>
     `;
 
@@ -219,41 +249,212 @@ window.addEventListener("load", function () {
   }
 
   function updateSidebarForCluster(cluster) {
+    const sidebarElement = document.getElementById("sidebar");
     const sidebarBody = document.querySelector(".offcanvas-body");
     if (!sidebarBody) return;
 
-    let content = `<h4>${cluster.count} объектов в этом районе</h4>`;
+    // Добавляем класс для расширения
+    sidebarElement.classList.add("expanded");
 
-    cluster.properties.forEach((prop) => {
+    let content = `<h4>${cluster.count} объектов в этом районе</h4>
+                <div class="cluster-grid">`;
+
+    cluster.properties.forEach((prop, index) => {
       const title = prop.title || "Без названия";
       const price = prop.price
         ? `${formatNumber(String(prop.price))} ₽`
         : "Цена не указана";
 
-      content += `
-        <div class="card mb-2">
-          <div class="card-body">
-            <h5 class="card-title">${title}</h5>
-            <p class="card-text">${price}</p>
-            <p class="card-text"><small>Адрес: ${prop.address || "не указан"}</small></p>
-            <a href="${prop.link}" target="_blank" class="btn btn-sm btn-primary">Подробнее</a>
+      let cardContent = `<div class="cluster-card">`;
+
+      // Добавляем фотографии первыми, если есть
+      if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
+        const carouselId = `carousel-cluster-${prop.id || Math.random().toString(36).substring(7)}`;
+        cardContent += `
+        <div class="mb-3">
+          <div id="${carouselId}" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-inner">
+        `;
+
+        prop.photos.forEach((photo, photoIndex) => {
+          cardContent += `
+            <div class="carousel-item${photoIndex === 0 ? " active" : ""}">
+              <img src="${photo}" class="d-block w-100" style="object-fit: cover; height: 180px; border-radius: 5px;" alt="Фото ${photoIndex + 1}">
+            </div>
+          `;
+        });
+
+        cardContent += `
+            </div>
+            <button class="carousel-control-prev" type="button" data-bs-target="#${carouselId}" data-bs-slide="prev">
+              <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Предыдущее</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#${carouselId}" data-bs-slide="next">
+              <span class="carousel-control-next-icon" aria-hidden="true"></span>
+              <span class="visually-hidden">Следующее</span>
+            </button>
           </div>
         </div>
+        `;
+      }
+
+      // Добавляем остальной контент после фотографий
+      cardContent += `
+        <h5>${title}</h5>
+        <h6><strong>Цена:</strong> ${price}</h6>
+        <p><strong>Адрес:</strong> ${prop.address || "не указан"}</p>
+        <p><strong>Характеристики:</strong> ${formatJSON(prop.factoids)}</p>
       `;
+
+      // Добавляем about_data если есть
+      if (prop.about_data && typeof prop.about_data === "object") {
+        cardContent += `<div class="mt-2"><strong>Дополнительные характеристики:</strong><ul style="font-size: 0.9rem;">`;
+        for (const [key, value] of Object.entries(prop.about_data)) {
+          cardContent += `<li><strong>${key}:</strong> ${value}</li>`;
+        }
+        cardContent += `</ul></div>`;
+      }
+
+      // Кнопки
+      cardContent += `
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-sm btn-outline-primary" onclick="showPropertyDetails(${index}, ${JSON.stringify(cluster).replace(/"/g, "&quot;")})">
+            Подробнее
+          </button>
+          <a href="${prop.link}" target="_blank" class="btn btn-sm btn-primary">
+            Перейти к объявлению
+          </a>
+        </div>
+      </div>
+      `;
+
+      content += cardContent;
     });
 
+    content += `</div>`;
     sidebarBody.innerHTML = content;
   }
 
-  map.on("moveend", loadClusters);
-  loadClusters();
+  // Функция для показа детальной информации об объявлении
+  window.showPropertyDetails = function (propertyIndex, cluster) {
+    const property = cluster.properties[propertyIndex];
+    const sidebarElement = document.getElementById("sidebar");
+    const sidebarBody = document.querySelector(".offcanvas-body");
+    if (!sidebarBody) return;
 
-  map.on("moveend", () => {
-    const rect = document.getElementById("map").getBoundingClientRect();
-    console.trace("Сработал moveend");
-    console.log(
-      `Камера перемещена. Центр: lat: ${map.getCenter().lat}, lng: ${map.getCenter().lng}, Зум: ${map.getZoom()}`,
-    );
-    console.log("Размер карты (px):", rect.width, rect.height);
+    // Убираем расширение для детального просмотра
+    sidebarElement.classList.remove("expanded");
+
+    let content = `
+      <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary" onclick="updateSidebarForCluster(${JSON.stringify(cluster).replace(/"/g, "&quot;")})">
+          ← Назад к кластеру
+        </button>
+      </div>
+      <h3>${property.title}</h3>
+      <h4><strong>Цена:</strong> ${formatNumber(String(property.price))} ₽</h4>
+      <p><strong>Адрес:</strong> ${property.address || "не указан"}</p>
+      <p><strong>Описание:</strong> ${property.description || "нету"}</p>
+      <p><strong>Характеристики:</strong> ${formatJSON(property.summary)}</p><br>
+      <a href="${property.link}" target="_blank" class="btn btn-primary mt-2">Перейти к объявлению</a>
+    `;
+
+    if (property.about_data && typeof property.about_data === "object") {
+      content += `<div class="mt-3"><strong>Дополнительные характеристики:</strong><ul>`;
+      for (const [key, value] of Object.entries(property.about_data)) {
+        content += `<li><strong>${key}:</strong> ${value}</li>`;
+      }
+      content += `</ul></div>`;
+    }
+
+    if (
+      property.photos &&
+      Array.isArray(property.photos) &&
+      property.photos.length > 0
+    ) {
+      const carouselId = `carousel-detail-${property.id || Math.random().toString(36).substring(7)}`;
+      content += `
+    <div class="mt-3">
+      <strong>Фотографии:</strong>
+      <div id="${carouselId}" class="carousel slide mt-2" data-bs-ride="carousel">
+        <div class="carousel-inner">
+  `;
+
+      property.photos.forEach((photo, index) => {
+        content += `
+      <div class="carousel-item${index === 0 ? " active" : ""}">
+        <img src="${photo}" class="d-block w-100" style="object-fit: cover; max-height: 300px;" alt="Фото ${index + 1}">
+      </div>
+    `;
+      });
+
+      content += `
+        </div>
+        <button class="carousel-control-prev" type="button" data-bs-target="#${carouselId}" data-bs-slide="prev">
+          <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Предыдущее</span>
+        </button>
+        <button class="carousel-control-next" type="button" data-bs-target="#${carouselId}" data-bs-slide="next">
+          <span class="carousel-control-next-icon" aria-hidden="true"></span>
+          <span class="visually-hidden">Следующее</span>
+        </button>
+      </div>
+    </div>
+  `;
+    }
+
+    sidebarBody.innerHTML = content;
+  };
+
+  // Делаем функцию глобально доступной
+  window.updateSidebarForCluster = updateSidebarForCluster;
+
+  map.on("moveend", loadClusters);
+
+  // ИСПРАВЛЕННЫЙ КОД: Объединяем логику фильтров в один обработчик
+  const filterPanel = document.getElementById("filter-panel");
+  const toggleBtn = document.getElementById("filter-toggle");
+
+  // Удален дублирующий обработчик - оставляем только один
+  toggleBtn.addEventListener("click", () => {
+    const isVisible = filterPanel.style.display === "block";
+
+    if (isVisible) {
+      filterPanel.classList.remove("show");
+      toggleBtn.classList.remove("active");
+      setTimeout(() => (filterPanel.style.display = "none"), 300);
+    } else {
+      filterPanel.style.display = "block";
+      setTimeout(() => {
+        filterPanel.classList.add("show");
+        toggleBtn.classList.add("active");
+      }, 10);
+    }
   });
+
+  document
+    .getElementById("filters-form")
+    .addEventListener("submit", function (e) {
+      e.preventDefault();
+      loadClusters();
+
+      if (filterPanel.classList.contains("show")) {
+        filterPanel.classList.remove("show");
+        filterPanel.addEventListener(
+          "transitionend",
+          () => {
+            filterPanel.style.display = "none";
+          },
+          { once: true },
+        );
+      }
+    });
+
+  document.getElementById("filter-reset").addEventListener("click", () => {
+    document.getElementById("filters-form").reset();
+    loadClusters();
+  });
+
+  loadClusters();
 });
