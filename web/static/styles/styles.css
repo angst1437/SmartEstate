@@ -155,7 +155,7 @@ html, body {
   height: auto;
   min-height: 1.8rem;
   border-radius: 0.25rem;
-  z-index: 5000 !important; /* Добавляем z-index для input полей */
+  z-index: 5000 !important;
 }
 
 #filter-toggle {
@@ -168,7 +168,7 @@ html, body {
   background-color: #e9f2ff;
 }
 
-/* Активное состояние */
+
 #filter-toggle.active {
   background-color: #0d6efd !important;
   color: white !important;

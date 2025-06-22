@@ -154,7 +154,6 @@ window.addEventListener("load", function () {
 
           marker.bindPopup(popupHtml, { autoPan: false });
 
-          // Обработчики событий
           marker.on("mouseover", function (e) {
             this.openPopup();
           });
@@ -165,7 +164,7 @@ window.addEventListener("load", function () {
 
           marker.on("click", function () {
             const sidebarElement = document.getElementById("sidebar");
-            sidebarElement.classList.remove("expanded"); // Сброс расширения
+            sidebarElement.classList.remove("expanded");
             const sidebar =
               bootstrap.Offcanvas.getInstance(sidebarElement) ||
               new bootstrap.Offcanvas(sidebarElement);
@@ -189,7 +188,6 @@ window.addEventListener("load", function () {
     const sidebarBody = document.querySelector(".offcanvas-body");
     if (!sidebarBody) return;
 
-    // Убираем расширение для одиночных объявлений
     sidebarElement.classList.remove("expanded");
 
     let content = `
@@ -253,7 +251,6 @@ window.addEventListener("load", function () {
     const sidebarBody = document.querySelector(".offcanvas-body");
     if (!sidebarBody) return;
 
-    // Добавляем класс для расширения
     sidebarElement.classList.add("expanded");
 
     let content = `<h4>${cluster.count} объектов в этом районе</h4>
@@ -267,7 +264,6 @@ window.addEventListener("load", function () {
 
       let cardContent = `<div class="cluster-card">`;
 
-      // Добавляем фотографии первыми, если есть
       if (prop.photos && Array.isArray(prop.photos) && prop.photos.length > 0) {
         const carouselId = `carousel-cluster-${prop.id || Math.random().toString(36).substring(7)}`;
         cardContent += `
@@ -299,7 +295,6 @@ window.addEventListener("load", function () {
         `;
       }
 
-      // Добавляем остальной контент после фотографий
       cardContent += `
         <h5>${title}</h5>
         <h6><strong>Цена:</strong> ${price}</h6>
@@ -307,7 +302,6 @@ window.addEventListener("load", function () {
         <p><strong>Характеристики:</strong> ${formatJSON(prop.factoids)}</p>
       `;
 
-      // Добавляем about_data если есть
       if (prop.about_data && typeof prop.about_data === "object") {
         cardContent += `<div class="mt-2"><strong>Дополнительные характеристики:</strong><ul style="font-size: 0.9rem;">`;
         for (const [key, value] of Object.entries(prop.about_data)) {
@@ -316,7 +310,6 @@ window.addEventListener("load", function () {
         cardContent += `</ul></div>`;
       }
 
-      // Кнопки
       cardContent += `
         <div class="mt-3 d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" onclick="showPropertyDetails(${index}, ${JSON.stringify(cluster).replace(/"/g, "&quot;")})">
@@ -343,7 +336,6 @@ window.addEventListener("load", function () {
     const sidebarBody = document.querySelector(".offcanvas-body");
     if (!sidebarBody) return;
 
-    // Убираем расширение для детального просмотра
     sidebarElement.classList.remove("expanded");
 
     let content = `
@@ -407,16 +399,13 @@ window.addEventListener("load", function () {
     sidebarBody.innerHTML = content;
   };
 
-  // Делаем функцию глобально доступной
   window.updateSidebarForCluster = updateSidebarForCluster;
 
   map.on("moveend", loadClusters);
 
-  // ИСПРАВЛЕННЫЙ КОД: Объединяем логику фильтров в один обработчик
   const filterPanel = document.getElementById("filter-panel");
   const toggleBtn = document.getElementById("filter-toggle");
 
-  // Удален дублирующий обработчик - оставляем только один
   toggleBtn.addEventListener("click", () => {
     const isVisible = filterPanel.style.display === "block";
 
