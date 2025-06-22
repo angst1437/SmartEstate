@@ -1,0 +1,51 @@
+/** {*/
+/*    font-family: "Inter", sans-serif;*/
+/*    font-optical-sizing: auto;*/
+/*    font-weight: 400;*/
+/*    font-style: normal;*/
+/*}*/
+
+/*#sidebar-toggle {*/
+/*    transition: left 0.3s ease;*/
+/*}*/
+
+/*#close-sidebar {*/
+/*    display: none;*/
+/*}*/
+
+/*#sidebar {*/
+/*    border-radius: 20px;*/
+/*    height: 85vh;*/
+/*    margin-top: 100px;*/
+/*    margin-left: 30px;*/
+/*    border-right: none !important;*/
+/*    box-shadow: none !important;*/
+/*    overflow-y: auto;*/
+/*    overflow-x: hidden;*/
+/*    word-wrap: break-word;*/
+/*    max-width: 1000px;*/
+/*    width: 100vh;*/
+
+
+/*}*/
+
+/*.offcanvas-body img {*/
+/*    max-width: 100%;*/
+/*    height: auto;*/
+/*}*/
+
+/*.offcanvas-body a {*/
+/*    word-break: break-word;*/
+/*}*/
+
+/*#map {*/
+/*  position: absolute; !* или fixed — в зависимости от макета *!*/
+/*  top: 0;*/
+/*  bottom: 0;*/
+/*  left: 0;*/
+/*  right: 0;*/
+/*  z-index: 1; !* ниже сайдбара *!*/
+/*}*/
+
+
+

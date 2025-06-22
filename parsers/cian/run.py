@@ -32,7 +32,7 @@ async def url_collector_task(queue: asyncio.Queue, start_url: str, client: httpx
             await queue.put({"url": link, "page": result["page"], "retries": 0})
             logger.debug(f"[Collector] Добавлена ссылка: {link} (стр. {result['page']})")
 
-        current_url = collector.get_next_page(current_url)
+        current_url = await collector.get_next_page(current_url)
 
     logger.info("[Collector] Завершение. Посылаем сигналы завершения воркерам.")
     for _ in range(8):
@@ -64,29 +64,27 @@ async def page_parser_worker(queue: asyncio.Queue, dbhelper_config: dict, worker
             parser = EstatePageParser(url=url, client=client)
             data = await parser.parse_page()
 
-            # Проверка данных перед вставкой
-            if not data or "address" not in data:
-                raise ValueError("Неполные данные от парсера")
 
             address = data["address"]
             clean_address = f"{address[1]} {address[-2]} {address[-1]}"
             latitude, longtitude = geocoder.get_cords_from_address(clean_address)
 
-            data["page"] = page
-            data["latitude"] = latitude
-            data["longitude"] = longtitude
+            if latitude is None or longtitude is None:
+                continue
+            else:
+                data["page"] = page
+                data["latitude"] = latitude
+                data["longitude"] = longtitude
 
-            # Проверка соединения с БД
-            try:
-                await db.insert_ad(data)
-                processed += 1
-                print(f"[Worker {worker_id}] Успешно: {url}")
-            except Exception as db_error:
-                logger.error(f"[Worker {worker_id}] Ошибка БД: {db_error}")
-                # Переинициализация соединения
-                db = DBHelper.DBHelper(**dbhelper_config)
-                await db.insert_ad(data)  # Повторная попытка
-                processed += 1
+                try:
+                    await db.insert_ad(data)
+                    processed += 1
+                    print(f"[Worker {worker_id}] Успешно: {url}")
+                except Exception as db_error:
+                    logger.error(f"[Worker {worker_id}] Ошибка БД: {db_error}")
+                    db = DBHelper.DBHelper(**dbhelper_config)
+                    await db.insert_ad(data)
+                    processed += 1
 
         except Exception as e:
             logger.warning(f"[Worker {worker_id}] Ошибка: {url} через {proxy}: {e}")
@@ -110,7 +108,7 @@ async def main():
     }
 
 
-    start_url = "https://chelyabinsk.cian.ru/cat.php?deal_type=sale&engine_version=2&offer_type=flat&p=2&region=5048"
+    start_url = "https://www.cian.ru/snyat-kvartiru-moskovskaya-oblast/"
     logger.info(f"Стартовый URL: {start_url}")
 
     queue = asyncio.Queue(maxsize=100000)

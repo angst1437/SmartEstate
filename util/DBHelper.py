@@ -72,9 +72,9 @@ class DBHelper:
         query = """
             INSERT INTO info (
                 link, city, address, price, photos, description, 
-                factoids, summary, type, page, latitude, longitude
+                factoids, summary, type, page, latitude, longitude, title
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             ON CONFLICT DO NOTHING
         """
 
@@ -90,7 +90,8 @@ class DBHelper:
             data.get("type"),
             data.get("page"),
             data.get("latitude"),
-            data.get("longitude")
+            data.get("longitude"),
+            data.get("title")
         )
 
         async with self.pool.acquire() as conn:

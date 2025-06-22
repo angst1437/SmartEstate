@@ -27,35 +27,48 @@ class EstatePageParser:
             "description": self.parse_description(tree),
             "factoids": self.parse_factoids(tree),
             "summary": self.parse_summary(tree),
-            "type": "rent" if "rent" or "snyat" in self.url else "sale"
+            "type": "rent" if "rent" in self.url or "snyat" in self.url else "sale",
+            "title": self.parse_title(tree)
         }
 
-    def parse_address(self, tree):
+    @staticmethod
+    def parse_address(tree):
         items = tree.css('a[data-name="AddressItem"]')
         return [html.unescape(i.text(strip=True)) for i in items if i.text()]
 
-    def parse_price(self, tree):
+    @staticmethod
+    def parse_price(tree):
         price_node = tree.css_first('div[data-testid="price-amount"] span')
         if price_node:
             price_text = html.unescape(price_node.text())
             return ''.join(c for c in price_text if c.isdigit())
         return None
 
-    def parse_photos(self, tree):
+    @staticmethod
+    def parse_photos(tree):
         photos = tree.css('div[data-name="OfferGallery"] img[src]')
         return [img.attributes.get("src") for img in photos[:10]]
 
-    def parse_description(self, tree):
+    @staticmethod
+    def parse_description(tree):
         desc_node = tree.css_first('div[data-name="Description"] span')
         return html.unescape(desc_node.text(strip=True)) if desc_node else None
 
-    def parse_factoids(self, tree):
+    @staticmethod
+    def parse_factoids(tree):
         factoids = tree.css('div[data-name="ObjectFactoidsItem"] span')
         return [html.unescape(f.text(strip=True)) for f in factoids if f.text()]
 
-    def parse_summary(self, tree):
+    @staticmethod
+    def parse_summary(tree):
         summaries = tree.css('div[data-name="OfferSummaryInfoItem"] p')
         return [html.unescape(s.text(strip=True)) for s in summaries if s.text()]
+
+    @staticmethod
+    def parse_title(tree):
+        title_text = tree.css_first('div[data-name="OfferTitleNew"] h1')
+        print(title_text)
+        return html.unescape(title_text.text(strip=True)) if title_text else None
 
 
 class UrlCollector:
@@ -90,8 +103,7 @@ class UrlCollector:
             print(f"Error fetching URL list from {url}: {e}")
             return {"urls": [], "page": 0}
 
-    @staticmethod
-    def get_next_page(current_url: str):
+    async def get_next_page(self, current_url: str):
         match = re.search(r"([?&])p=(\d+)", current_url)
         if match:
             sep = match.group(1)
@@ -99,23 +111,27 @@ class UrlCollector:
             new_url = re.sub(r"([?&])p=\d+", f"{sep}p={current_page + 1}", current_url, count=1)
             return new_url
         else:
-            return None
+            res = await self.client.get(current_url)
+            res.raise_for_status()
+            tree = HTMLParser(res.text)
+            nav = tree.css_first('nav[data-name="pagination"]')
+            if nav:
+                first_a = nav.css_first('a')
+                if first_a:
+                    href = first_a.attributes.get('href')
+                    return href
+                else:
+                    print("Тег <a> не найден.")
 
-    def get_next_page_url(html: str) -> str:
-        """
-        Извлекает URL следующей страницы из HTML кода пагинации
-        """
-        parser = HTMLParser(html)
 
-        # Ищем контейнер пагинации
-        pagination = parser.css_first('div[data-name="PaginationSection"]')
+
 
 
 async def main():
     async with httpx.AsyncClient() as client:
-        parser = EstatePageParser("https://www.cian.ru/sale/flat/306076627/", client)
-        data = await parser.parse_page()
-        print(data)
+        parser = EstatePageParser("https://chelyabinsk.cian.ru/sale/flat/306663166/", client)
+        print(await parser.parse_page())
+
 
 if __name__ == "__main__":
     asyncio.run(main())
