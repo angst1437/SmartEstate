@@ -79,8 +79,8 @@ class DBHelper:
             data.get("price"),
             data.get("photos"),
             data.get("description"),
-            json.dumps(data.get("factoids", {})),  # ← сериализуем
-            json.dumps(data.get("summary", {})),  # ← сериализуем
+            json.dumps(data.get("factoids", {})),
+            json.dumps(data.get("summary", {})),
             data.get("type"),
             data.get("page"),
             data.get("latitude"),
