@@ -38,13 +38,15 @@ function formatJSON(jsonData, isNested = false) {
 }
 
 window.addEventListener("load", function () {
-  const map = L.map("map").setView([55.1465, 61.3406], 12);
+  const map = L.map("map", { attributionControl: true }).setView(
+    [55.1465, 61.3406],
+    12,
+  );
+  map.attributionControl.setPrefix(false);
 
   const mapElement = document.getElementById("map");
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap contributors",
-  }).addTo(map);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
 
   let markers = [];
 

@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+import time
 from datetime import datetime
 
 from cian_parser import EstatePageParser, UrlCollector
@@ -25,8 +26,11 @@ async def url_collector_task(queue: asyncio.Queue, start_url: str, client: httpx
         logger.info(f"[Collector] Обрабатываем страницу {i+1}: {current_url}")
         result = await collector.get_urls_from_page(current_url)
         if result is None or not result["urls"]:
-            logger.warning(f"[Collector] Нет ссылок на странице {current_url}. Остановка.")
-            break
+            time.sleep(2)
+            result = await collector.get_urls_from_page(current_url)
+            if result is None or not result["urls"]:
+                logger.warning(f"[Collector] Нет ссылок на странице {current_url}. Остановка.")
+                break
 
         for link in result["urls"]:
             await queue.put({"url": link, "page": result["page"], "retries": 0})
@@ -108,7 +112,7 @@ async def main():
     }
 
 
-    start_url = "https://chelyabinsk.cian.ru/kupit-3-komnatnuyu-kvartiru-chelyabinskaya-oblast/"
+    start_url = "https://chelyabinsk.cian.ru/cat.php?deal_type=sale&engine_version=2&offer_type=flat&region=5048&room4=1&room5=1&room6=1"
     logger.info(f"Стартовый URL: {start_url}")
 
     queue = asyncio.Queue(maxsize=100000)
