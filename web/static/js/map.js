@@ -67,6 +67,7 @@ window.addEventListener("load", function () {
         .value,
       bathroom_type: document.getElementById("filter_bathroom_type").value,
       balcony_type: document.getElementById("filter_balcony_type").value,
+      sell_type: document.getElementById("sell_type").value,
     };
 
     Object.keys(filters).forEach((key) => {
@@ -120,13 +121,6 @@ window.addEventListener("load", function () {
               <b>Цена:</b> ${formatted_price} ₽<br>
               <b>Адрес:</b> ${prop.address || "не указан"}<br>
             `;
-
-            if (prop.about_data && typeof prop.about_data === "object") {
-              popupHtml += `<b>Характеристики:</b><br>`;
-              for (const [key, value] of Object.entries(prop.about_data)) {
-                popupHtml += `• ${key}: ${value}<br>`;
-              }
-            }
 
             if (prop.photos && Array.isArray(prop.photos)) {
               popupHtml += `
@@ -198,14 +192,6 @@ window.addEventListener("load", function () {
       <p><strong>Характеристики:</strong> ${formatJSON(property.summary)}</p><br>
       <a href="${property.link}" target="_blank" class="btn btn-primary mt-2">Перейти к объявлению</a>
     `;
-
-    if (property.about_data && typeof property.about_data === "object") {
-      content += `<div class="mt-3"><strong>Характеристики:</strong><ul>`;
-      for (const [key, value] of Object.entries(property.about_data)) {
-        content += `<li><strong>${key}:</strong> ${value}</li>`;
-      }
-      content += `</ul></div>`;
-    }
 
     if (
       property.photos &&
@@ -302,14 +288,6 @@ window.addEventListener("load", function () {
         <p><strong>Характеристики:</strong> ${formatJSON(prop.factoids)}</p>
       `;
 
-      if (prop.about_data && typeof prop.about_data === "object") {
-        cardContent += `<div class="mt-2"><strong>Дополнительные характеристики:</strong><ul style="font-size: 0.9rem;">`;
-        for (const [key, value] of Object.entries(prop.about_data)) {
-          cardContent += `<li><strong>${key}:</strong> ${value}</li>`;
-        }
-        cardContent += `</ul></div>`;
-      }
-
       cardContent += `
         <div class="mt-3 d-flex gap-2">
           <button class="btn btn-sm btn-outline-primary" onclick="showPropertyDetails(${index}, ${JSON.stringify(cluster).replace(/"/g, "&quot;")})">
@@ -341,7 +319,7 @@ window.addEventListener("load", function () {
     let content = `
       <div class="mb-3">
         <button class="btn btn-sm btn-outline-secondary" onclick="updateSidebarForCluster(${JSON.stringify(cluster).replace(/"/g, "&quot;")})">
-          ← Назад к кластеру
+          ← Назад
         </button>
       </div>
       <h3>${property.title}</h3>
@@ -351,14 +329,6 @@ window.addEventListener("load", function () {
       <p><strong>Характеристики:</strong> ${formatJSON(property.summary)}</p><br>
       <a href="${property.link}" target="_blank" class="btn btn-primary mt-2">Перейти к объявлению</a>
     `;
-
-    if (property.about_data && typeof property.about_data === "object") {
-      content += `<div class="mt-3"><strong>Дополнительные характеристики:</strong><ul>`;
-      for (const [key, value] of Object.entries(property.about_data)) {
-        content += `<li><strong>${key}:</strong> ${value}</li>`;
-      }
-      content += `</ul></div>`;
-    }
 
     if (
       property.photos &&

@@ -108,7 +108,7 @@ async def main():
     }
 
 
-    start_url = "https://www.cian.ru/snyat-kvartiru-moskovskaya-oblast/"
+    start_url = "https://chelyabinsk.cian.ru/kupit-3-komnatnuyu-kvartiru-chelyabinskaya-oblast/"
     logger.info(f"Стартовый URL: {start_url}")
 
     queue = asyncio.Queue(maxsize=100000)

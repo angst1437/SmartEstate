@@ -41,7 +41,8 @@ class EstatePageParser:
         price_node = tree.css_first('div[data-testid="price-amount"] span')
         if price_node:
             price_text = html.unescape(price_node.text())
-            return ''.join(c for c in price_text if c.isdigit())
+            digits = ''.join(c for c in price_text if c.isdigit())
+            return int(digits) if digits else None
         return None
 
     @staticmethod
@@ -56,13 +57,31 @@ class EstatePageParser:
 
     @staticmethod
     def parse_factoids(tree):
-        factoids = tree.css('div[data-name="ObjectFactoidsItem"] span')
-        return [html.unescape(f.text(strip=True)) for f in factoids if f.text()]
+        spans = tree.css('div[data-name="ObjectFactoidsItem"] span')
+        items = [html.unescape(s.text(strip=True)) for s in spans if s.text(strip=True)]
+
+        factoids = {}
+        for i in range(0, len(items) - 1, 2):
+            key = items[i]
+            value = items[i + 1]
+            if key:
+                factoids[key] = value
+
+        return factoids
 
     @staticmethod
     def parse_summary(tree):
-        summaries = tree.css('div[data-name="OfferSummaryInfoItem"] p')
-        return [html.unescape(s.text(strip=True)) for s in summaries if s.text()]
+        paragraphs = tree.css('div[data-name="OfferSummaryInfoItem"] p')
+        items = [html.unescape(p.text(strip=True)) for p in paragraphs if p.text(strip=True)]
+
+        summary = {}
+        for i in range(0, len(items) - 1, 2):
+            key = items[i]
+            value = items[i + 1]
+            if key:  # <= это уже защита от '' в ключах
+                summary[key] = value
+
+        return summary
 
     @staticmethod
     def parse_title(tree):

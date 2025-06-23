@@ -1,8 +1,5 @@
 import math
-import folium
 import psycopg2
-import json
-from collections import defaultdict
 from fastapi import FastAPI, Query, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +45,7 @@ class Filters(BaseModel):
     bathroom_type: Optional[str] = None
     renovation_type: Optional[str] = None
     balcony_type: Optional[str] = None
+    sell_type: Optional[str] = None
 
 
 def get_db_connection():
@@ -134,8 +132,9 @@ def get_clusters_from_db(zoom_level: int, ne_lat=None, ne_lng=None, sw_lat=None,
 
         "bathroom_type": (
             "(summary ? 'Санузел') AND summary->>'Санузел' ILIKE %s",
-            lambda f: f.bathroom_type
+            lambda f: f"%%{f.bathroom_type}%%" if f.bathroom_type else None
         ),
+
 
         "renovation_type": (
             "(summary ? 'Ремонт') AND summary->>'Ремонт' = %s",
@@ -143,9 +142,14 @@ def get_clusters_from_db(zoom_level: int, ne_lat=None, ne_lng=None, sw_lat=None,
         ),
 
             "balcony_type": (
-            "(summary ? 'Балкон') AND summary->>'Балкон' = %s",
-            lambda f: f.balcony_type
+            "(summary ? 'Балкон/лоджия') AND REPLACE(summary->>'Балкон/лоджия', E'\u00A0', ' ') ILIKE %s",
+            lambda f: f"%%{f.balcony_type.replace('\u00A0', ' ') if f.balcony_type else ''}%%"
         ),
+
+        "sell_type": (
+            "type = %s",
+            lambda f: f.sell_type
+        )
     }
 
     try:

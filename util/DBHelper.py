@@ -1,3 +1,5 @@
+import json
+
 import asyncpg
 from asyncpg.pool import Pool
 from typing import Optional, List, Dict, Any, Union, AsyncIterator
@@ -77,8 +79,8 @@ class DBHelper:
             data.get("price"),
             data.get("photos"),
             data.get("description"),
-            data.get("factoids"),
-            data.get("summary"),
+            json.dumps(data.get("factoids", {})),  # ← сериализуем
+            json.dumps(data.get("summary", {})),  # ← сериализуем
             data.get("type"),
             data.get("page"),
             data.get("latitude"),
